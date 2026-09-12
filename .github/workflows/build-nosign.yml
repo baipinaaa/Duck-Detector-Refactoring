@@ -106,24 +106,27 @@ jobs:
             sleep $((attempt * 5))
           done
 
-      - name: Build debug APK
+      - name: Build release APK
         id: build
         shell: bash
         run: |
           set -euo pipefail
 
+          # 不设置 ANDROID_KEYSTORE_* 环境变量时，
+          # build logic 会自动回退到使用 debug 签名，因此无需任何密钥。
+          # 但会启用 R8 混淆与资源压缩，得到小体积 APK。
           ./gradlew \
             --stacktrace \
-            :app:assembleDebug
+            :app:assembleRelease
 
           echo "build outputs:"
-          find app/build/outputs/apk -type f -name '*.apk' 2>/dev/null || true
+          find app/build/outputs/apk/release -type f -name '*.apk' 2>/dev/null || true
 
-      - name: Upload debug APK artifact
+      - name: Upload release APK artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: DuckDetector-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: DuckDetector-release-apk
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
