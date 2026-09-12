@@ -49,7 +49,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -74,7 +73,6 @@ import androidx.compose.ui.window.DialogProperties
 import com.eltavine.duckdetector.BuildConfig
 import com.eltavine.duckdetector.R
 import com.eltavine.duckdetector.core.ui.openExternalUri
-import kotlinx.coroutines.delay
 
 private const val APP_ERRORS_TRACKING_GITHUB =
     "https://github.com/KitsunePie/AppErrorsTracking/actions"
@@ -95,22 +93,13 @@ fun AlphaBuildWarningOverlay(
     }
     val visible = forceVisible ?: internalVisible
 
-    LaunchedEffect(visible, shouldShow) {
-        if (!visible || !shouldShow) {
-            return@LaunchedEffect
-        }
-        remainingSeconds = 3
-        while (remainingSeconds > 0) {
-            delay(1_000L)
-            remainingSeconds -= 1
-        }
-    }
+    // 已移除强制倒计时等待（remainingSeconds 仅保留供文案引用，不再阻塞）。
 
     if (!visible || !shouldShow) {
         return
     }
 
-    val canDismiss = remainingSeconds == 0
+    val canDismiss = true // 移除倒计时等待：立即允许关闭/点击。
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val dismissOverlay = {

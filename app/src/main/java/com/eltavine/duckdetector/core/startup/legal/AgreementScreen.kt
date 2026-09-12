@@ -112,7 +112,9 @@ fun AgreementScreen(
             maxScroll > 0 && scrollState.value >= maxScroll - 50
         }
     }
-    val canProceed = isCheatCode || (mathCorrect && isScrolledToBottom)
+    // 移除强制验证：按钮始终可点，无需解答算术题或滚动到底部。
+    // 保留 isCheatCode/mathCorrect/isScrolledToBottom 变量仅用于 UI 提示视觉，不阻塞操作。
+    val canProceed = true
     val buttonScale by animateFloatAsState(
         targetValue = if (canProceed) 1f else 0.96f,
         animationSpec = spring(
