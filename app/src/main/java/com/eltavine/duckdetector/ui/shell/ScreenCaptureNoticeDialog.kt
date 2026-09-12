@@ -30,7 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -47,7 +46,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import com.eltavine.duckdetector.R
 import com.eltavine.duckdetector.core.ui.components.WrapSafeText
-import kotlinx.coroutines.delay
 
 internal const val SCREEN_CAPTURE_NOTICE_LOCK_SECONDS = 3
 
@@ -104,15 +102,8 @@ fun ScreenCaptureNoticeDialog(
     var secondsRemaining by rememberSaveable(noticeInstanceKey) {
         mutableIntStateOf(SCREEN_CAPTURE_NOTICE_LOCK_SECONDS)
     }
-    val canDismiss = secondsRemaining == 0
-
-    LaunchedEffect(noticeInstanceKey) {
-        secondsRemaining = SCREEN_CAPTURE_NOTICE_LOCK_SECONDS
-        while (secondsRemaining > 0) {
-            delay(1_000L)
-            secondsRemaining -= 1
-        }
-    }
+    // 移除强制倒计时：按钮立即可点（secondsRemaining 仅保留供文案引用，不再阻塞）。
+    val canDismiss = true
 
     AlertDialog(
         onDismissRequest = {

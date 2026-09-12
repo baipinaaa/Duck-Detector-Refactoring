@@ -23,7 +23,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
@@ -39,7 +38,6 @@ import com.eltavine.duckdetector.core.ui.model.DetectionSeverity
 import com.eltavine.duckdetector.core.ui.model.DetectorStatus
 import com.eltavine.duckdetector.core.ui.components.WrapSafeText
 import com.eltavine.duckdetector.features.dashboard.ui.model.DashboardDetectorContribution
-import kotlinx.coroutines.delay
 
 internal const val RESULT_NOTICE_LOCK_SECONDS = 5
 
@@ -77,14 +75,8 @@ fun DetectorResultNoticeDialog(
     onDismiss: () -> Unit,
 ) {
     var secondsRemaining by rememberSaveable { mutableIntStateOf(RESULT_NOTICE_LOCK_SECONDS) }
-    val canDismiss = secondsRemaining == 0
-
-    LaunchedEffect(Unit) {
-        while (secondsRemaining > 0) {
-            delay(1_000)
-            secondsRemaining -= 1
-        }
-    }
+    // 移除强制倒计时：按钮立即可点（secondsRemaining 仅保留供文案引用，不再阻塞）。
+    val canDismiss = true
 
     AlertDialog(
         onDismissRequest = {
