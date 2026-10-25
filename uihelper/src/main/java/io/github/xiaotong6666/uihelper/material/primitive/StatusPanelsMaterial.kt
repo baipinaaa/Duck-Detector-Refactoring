@@ -1,0 +1,483 @@
+/*
+ * Copyright (C) 2026 XiaoTong6666
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+@file:Suppress("ktlint:standard:function-naming")
+
+package io.github.xiaotong6666.uihelper.material.primitive
+
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircleOutline
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import io.github.xiaotong6666.uihelper.adaptive.currentLocale
+import io.github.xiaotong6666.uihelper.model.HomeInfoItem
+
+@Composable
+fun StatusChipMaterial(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    supportingText: String? = null,
+    metaText: String? = null,
+    supportingMinLines: Int = 0,
+    metaMinLines: Int = 0,
+    emphasized: Boolean = false,
+    onClick: (() -> Unit)? = null,
+) {
+    val containerColor by animateColorAsState(
+        targetValue = if (emphasized) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceBright,
+        animationSpec = spring(),
+        label = "status_chip_container",
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (emphasized) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        animationSpec = spring(),
+        label = "status_chip_content",
+    )
+    TonalCardMaterial(
+        modifier = modifier.heightIn(min = 124.dp),
+        containerColor = containerColor,
+        contentColor = contentColor,
+        onClick = onClick,
+    ) {
+        StatusChipMaterialContent(
+            label = label,
+            value = value,
+            supportingText = supportingText,
+            metaText = metaText,
+            supportingMinLines = supportingMinLines,
+            metaMinLines = metaMinLines,
+            emphasized = emphasized,
+            contentColor = contentColor,
+        )
+    }
+}
+
+@Composable
+fun HomeStatusCardMaterial(
+    title: String,
+    summary: String,
+    footer: String,
+    healthy: Boolean,
+    checking: Boolean = false,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
+    val containerColor = if (checking) {
+        MaterialTheme.colorScheme.surfaceBright
+    } else if (healthy) {
+        MaterialTheme.colorScheme.secondaryContainer
+    } else {
+        MaterialTheme.colorScheme.errorContainer
+    }
+    val contentColor = if (checking) {
+        MaterialTheme.colorScheme.onSurface
+    } else if (healthy) {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    } else {
+        MaterialTheme.colorScheme.onErrorContainer
+    }
+
+    TonalCardMaterial(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 156.dp),
+        containerColor = containerColor,
+        contentColor = contentColor,
+        onClick = onClick,
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset(27.dp, 31.dp),
+                contentAlignment = Alignment.BottomEnd,
+            ) {
+                Icon(
+                    modifier = Modifier.size(110.dp),
+                    imageVector = if (healthy) {
+                        Icons.Rounded.CheckCircleOutline
+                    } else {
+                        Icons.Rounded.ErrorOutline
+                    },
+                    tint = if (checking) {
+                        androidx.compose.ui.graphics.Color.Transparent
+                    } else if (healthy) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                    } else {
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                    },
+                    contentDescription = null,
+                )
+            }
+            Column(
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = contentColor,
+                )
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = contentColor.copy(alpha = 0.82f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                text = footer,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+fun HomeInfoCardMaterial(
+    items: List<HomeInfoItem>,
+    modifier: Modifier = Modifier,
+) {
+    if (items.isEmpty()) return
+
+    TonalCardMaterial(
+        modifier = modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceBright,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+        ) {
+            items.forEachIndexed { index, item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = if (index == items.lastIndex) 0.dp else 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = item.title,
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Column {
+                        Text(
+                            text = item.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = item.value,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusChipMaterialContent(
+    label: String,
+    value: String,
+    supportingText: String?,
+    metaText: String?,
+    supportingMinLines: Int,
+    metaMinLines: Int,
+    emphasized: Boolean,
+    contentColor: Color,
+) {
+    val locale = currentLocale()
+    Column(
+        modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Text(
+            text = label.uppercase(locale),
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = if (emphasized) contentColor.copy(alpha = 0.78f) else MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            color = contentColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (supportingText != null || supportingMinLines > 0) {
+            val reservedSupportingLines = maxOf(1, supportingMinLines)
+            Text(
+                text = supportingText.orEmpty(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (supportingText.isNullOrEmpty()) {
+                    Color.Transparent
+                } else if (emphasized) {
+                    contentColor.copy(alpha = 0.86f)
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                minLines = reservedSupportingLines,
+                maxLines = maxOf(2, reservedSupportingLines),
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (metaText != null || metaMinLines > 0) {
+            val reservedMetaLines = maxOf(1, metaMinLines)
+            Text(
+                text = metaText.orEmpty(),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (metaText.isNullOrEmpty()) {
+                    Color.Transparent
+                } else if (emphasized) {
+                    contentColor.copy(alpha = 0.78f)
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                minLines = reservedMetaLines,
+                maxLines = maxOf(1, reservedMetaLines),
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+fun MetricCardMaterial(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    valueMaxLines: Int = 2,
+    monospace: Boolean = false,
+) {
+    val locale = currentLocale()
+    TonalCardMaterial(
+        modifier = modifier.heightIn(min = 100.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceBright,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Text(
+                text = label.uppercase(locale),
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge,
+                fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default,
+                maxLines = valueMaxLines,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+fun InfoPanelMaterial(
+    title: String,
+    text: String,
+    monospace: Boolean = false,
+    emphasized: Boolean = false,
+) {
+    val containerColor = if (emphasized) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh
+    val contentColor = if (emphasized) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface
+    TonalCardMaterial(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = containerColor,
+        contentColor = contentColor,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (title.isNotEmpty()) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = contentColor.copy(alpha = 0.72f),
+                )
+            }
+            SelectionContainer {
+                Text(
+                    text = text,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
+                    fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MonospaceBlockMaterial(text: String, modifier: Modifier = Modifier) {
+    SelectionContainer {
+        Text(
+            text = text,
+            modifier = modifier
+                .fillMaxWidth()
+                .wrapContentHeight(),
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@Composable
+fun DeviceStatusListMaterial(infoPairs: List<Pair<String, String>>) {
+    TonalCardMaterial(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceBright,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+        ) {
+            infoPairs.forEachIndexed { index, pair ->
+                val isLast = index == infoPairs.lastIndex
+                Text(
+                    text = pair.first,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = pair.second,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = if (isLast) 0.dp else 18.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun RuntimeSummaryCardMaterial(
+    summaryText: String,
+    snapshotText: String,
+    emphasized: Boolean,
+) {
+    val containerColor by animateColorAsState(
+        targetValue = if (emphasized) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceBright,
+        animationSpec = spring(),
+        label = "runtime_summary_container",
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (emphasized) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
+        animationSpec = spring(),
+        label = "runtime_summary_content",
+    )
+    TonalCardMaterial(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = containerColor,
+        contentColor = contentColor,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            if (summaryText.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                ) {
+                    Text(
+                        text = summaryText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = contentColor,
+                    )
+                }
+            }
+            if (summaryText.isNotEmpty() && snapshotText.isNotEmpty()) {
+                SettingsGroupDividerMaterial()
+            }
+            if (snapshotText.isNotEmpty()) {
+                SelectionContainer {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 220.dp)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 18.dp, vertical = 16.dp),
+                    ) {
+                        Text(
+                            text = snapshotText,
+                            fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = contentColor,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
