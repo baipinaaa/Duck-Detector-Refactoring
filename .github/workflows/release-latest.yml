@@ -130,7 +130,7 @@ jobs:
 
       - name: Set up Android build toolchain
         id: toolchain
-        uses: $/.github/actions/setup-android-build
+        uses: ./.github/actions/setup-android-build
         with:
           # Tag builds restore the cache but do not write it back: GitHub scopes a cache entry to
           # the ref that created it, so an entry written from refs/tags/v* can never be read by
@@ -228,6 +228,11 @@ jobs:
           echo "sha256=${expected_sha256}" >> "$GITHUB_OUTPUT"
           echo "signer_name=${signer_name}" >> "$GITHUB_OUTPUT"
 
+      - name: Generate contributors JSON and avatars
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew --stacktrace -Pduckdetector.githubContributors.refresh=true :app:generateGithubContributorsAsset
+
       - name: Build release APK
         id: build
         shell: bash
@@ -245,7 +250,6 @@ jobs:
             --stacktrace \
             -Pduckdetector.buildTimeUtc="${build_time_utc}" \
             -Pduckdetector.teeCrl.refresh=true \
-            -Pduckdetector.githubContributors.refresh=true \
             :app:assembleRelease
           end_time=$(date +%s)
 
@@ -458,7 +462,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish latest GitHub release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: ${{ steps.release_target.outputs.tag_name }}
           name: ${{ steps.release_meta.outputs.release_name }}

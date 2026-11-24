@@ -165,23 +165,38 @@ jobs:
         with:
           cache-read-only: "true"
 
+      - name: Generate contributors JSON and avatars
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./gradlew --stacktrace -Pduckdetector.githubContributors.refresh=true :app:generateGithubContributorsAsset
+
       # Every module registers a unitTest lifecycle task, so the unqualified name runs the tests of
       # all core, capability, feature and app modules; :build-logic:test runs the module boundary
       # validator's self-tests. Configuring the build already fails on a boundary violation.
       # checkPublicApi compares the SDK contract modules' public API with their committed dumps.
       # assembleDebug covers externalNativeBuildDebug, so the CMake configuration and all four ABIs
-      # are compiled here. The contributors asset is deliberately left unrefreshed: pull requests
-      # have no reason to reach github.com during the build.
+      # are compiled here, with the contributors snapshot generated above packaged in the APK.
       - name: Run unit tests and assemble debug
         shell: bash
         run: |
           set -euo pipefail
 
-          ./gradlew --stacktrace \
-            :build-logic:test \
-            unitTest \
-            checkPublicApi \
-            :app:assembleDebug
+          # Maven Central can return HTTP 429 to shared Actions runners. Retry only
+          # that transient dependency failure; compilation/test failures still fail.
+          for attempt in 1 2 3; do
+            if ./gradlew --stacktrace \
+              :build-logic:test \
+              unitTest \
+              checkPublicApi \
+              :app:assembleDebug 2>&1 | tee /tmp/duck-ci-gradle.log; then
+              break
+            fi
+            if (( attempt == 3 )) || ! grep -Eq 'Received status code 429|HTTP[^[:space:]]* 429' /tmp/duck-ci-gradle.log; then
+              exit 1
+            fi
+            echo "::warning::Dependency repository returned HTTP 429; retrying after backoff"
+            sleep $((attempt * 45))
+          done
 
       # buildHealth fails when a module declares a dependency its code does not use, uses one it
       # only reaches transitively, or exposes one through the wrong configuration. The reviewed

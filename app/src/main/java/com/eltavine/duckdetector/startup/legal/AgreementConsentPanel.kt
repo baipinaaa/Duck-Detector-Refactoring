@@ -65,10 +65,7 @@ import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * The bar pinned below the agreement: the button that accepts the agreement.
- *
- * The former countdown / arithmetic / scroll-to-bottom gate has been removed, so the button is
- * available immediately.
+ * The bar pinned below the agreement: the button that accepts the document.
  *
  * [onContentHeightChanged] reports the bar's height without the navigation bar or keyboard
  * beneath it, which is the part of the document the bar covers.

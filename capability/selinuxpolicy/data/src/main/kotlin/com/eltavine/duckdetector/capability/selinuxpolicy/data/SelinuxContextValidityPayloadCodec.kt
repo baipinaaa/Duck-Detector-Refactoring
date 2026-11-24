@@ -67,6 +67,22 @@ internal object SelinuxContextValidityPayloadCodec {
                 .append('\n')
             append("KSU_RESULTS_STABLE=").append(if (snapshot.ksuResultsStable) '1' else '0')
                 .append('\n')
+            if (snapshot.ksuTimingBatchDifferencesNs.isNotEmpty()) {
+                append("KSU_TIMING_BATCH_DIFFERENCES_NS=")
+                    .append(snapshot.ksuTimingBatchDifferencesNs.joinToString(","))
+                    .append('\n')
+            }
+            if (snapshot.ksuProcAttrTimingBatchDifferencesNs.isNotEmpty()) {
+                append("KSU_PROC_ATTR_TIMING_BATCH_DIFFERENCES_NS=")
+                    .append(snapshot.ksuProcAttrTimingBatchDifferencesNs.joinToString(","))
+                    .append('\n')
+            }
+            snapshot.xxksuFdReuseRaw?.let {
+                append("XXKSU_FD_REUSE_RAW=").append(escapeValue(it)).append('\n')
+            }
+            snapshot.xxksuAccessTailRaw?.let {
+                append("XXKSU_ACCESS_TAIL_RAW=").append(escapeValue(it)).append('\n')
+            }
             snapshot.queryMethod.takeIf { it.isNotEmpty() }?.let {
                 append("QUERY_METHOD=").append(escapeValue(it)).append('\n')
             }
@@ -201,6 +217,10 @@ internal object SelinuxContextValidityPayloadCodec {
             snapshot.dirtyPolicyNotes.forEach { note ->
                 append("DIRTY_POLICY_NOTE=").append(escapeValue(note)).append('\n')
             }
+            snapshot.dirtyPolicyAdditionalRules.forEach { (name, allowed) ->
+                append("DIRTY_POLICY_EXTRA_RULE=")
+                    .append(escapeValue("$name|${if (allowed) 1 else 0}")).append('\n')
+            }
             append("JAVA_DIRTY_POLICY_AVAILABLE=")
                 .append(if (snapshot.javaDirtyPolicyAvailable) '1' else '0')
                 .append('\n')
@@ -323,36 +343,14 @@ internal object SelinuxContextValidityPayloadCodec {
             snapshot.javaDirtyPolicyNotes.forEach { note ->
                 append("JAVA_DIRTY_POLICY_NOTE=").append(escapeValue(note)).append('\n')
             }
-            append("POLICYLOAD_SEQNO_AVAILABLE=")
-                .append(if (snapshot.policyloadSeqnoAvailable) '1' else '0')
+            snapshot.javaDirtyPolicyAdditionalRules.forEach { (name, allowed) ->
+                append("JAVA_DIRTY_POLICY_EXTRA_RULE=")
+                    .append(escapeValue("$name|${if (allowed) 1 else 0}")).append('\n')
+            }
+            appendPolicyloadSeqno(snapshot)
+            append("DIRTY_SEPOLICY_RAW=")
+                .append(escapeValue(SelinuxDirtySepolicyRawCodec.encode(snapshot.dirtySepolicyRaw)))
                 .append('\n')
-            append("POLICYLOAD_SEQNO_PROBE_ATTEMPTED=")
-                .append(if (snapshot.policyloadSeqnoProbeAttempted) '1' else '0')
-                .append('\n')
-            snapshot.policyloadSeqnoState?.takeIf { it.isNotEmpty() }?.let {
-                append("POLICYLOAD_SEQNO_STATE=").append(escapeValue(it)).append('\n')
-            }
-            snapshot.policyloadSeqnoCarrierContext?.takeIf { it.isNotEmpty() }?.let {
-                append("POLICYLOAD_SEQNO_CARRIER_CONTEXT=").append(escapeValue(it)).append('\n')
-            }
-            snapshot.policyloadSeqnoStatusSequence?.let {
-                append("POLICYLOAD_SEQNO_STATUS_SEQUENCE=").append(it).append('\n')
-            }
-            snapshot.policyloadSeqnoStatusPolicyload?.let {
-                append("POLICYLOAD_SEQNO_STATUS_POLICYLOAD=").append(it).append('\n')
-            }
-            snapshot.policyloadSeqnoAccessSeqno?.let {
-                append("POLICYLOAD_SEQNO_ACCESS_SEQNO=").append(it).append('\n')
-            }
-            snapshot.policyloadSeqnoProcessClass?.let {
-                append("POLICYLOAD_SEQNO_PROCESS_CLASS=").append(it).append('\n')
-            }
-            snapshot.policyloadSeqnoFailureReason?.takeIf { it.isNotEmpty() }?.let {
-                append("POLICYLOAD_SEQNO_FAILURE_REASON=").append(escapeValue(it)).append('\n')
-            }
-            snapshot.policyloadSeqnoNotes.forEach { note ->
-                append("POLICYLOAD_SEQNO_NOTE=").append(escapeValue(note)).append('\n')
-            }
             append("PROC_ATTR_CURRENT_PROBE_ATTEMPTED=")
                 .append(if (snapshot.procAttrCurrentProbeAttempted) '1' else '0')
                 .append('\n')

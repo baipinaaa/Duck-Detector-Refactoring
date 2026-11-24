@@ -12,11 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Build Release APK (No Signing)
+name: Build And Publish Release
 
-# Builds a release APK (R8 + resource shrinking, small size) without requiring any keystore or
-# third-party secrets. When ANDROID_KEYSTORE_* environment variables are absent, the build logic
-# falls back to the debug signing config, so the APK installs on a device as-is.
+# Builds a release APK (R8 + resource shrinking) and publishes it as a normal GitHub Release
+# (`/releases/latest`), not as a workflow artifact.
+#
+# Signing: set these repository secrets and the APK is signed with your own key. When they are
+# absent the build logic silently falls back to the debug signing config, so the APK still
+# installs on a device.
+#   ANDROID_KEYSTORE_BASE64      base64 of the PKCS12 keystore file
+#   ANDROID_KEYSTORE_PASSWORD    keystore (store) password
+#   ANDROID_KEY_ALIAS            key alias
+#   ANDROID_KEY_PASSWORD         key password
 on:
   push:
     branches:
@@ -30,9 +37,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -46,6 +53,37 @@ jobs:
         with:
           cache-read-only: "false"
 
+      - name: Prepare signing keystore
+        id: signing
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${KEYSTORE_B64:-}" ] || [ -z "${KEYSTORE_PASSWORD:-}" ] \
+             || [ -z "${KEY_ALIAS:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
+            echo "Signing secrets are incomplete; the release APK will be debug-signed."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          keystore_path="${RUNNER_TEMP}/release.keystore"
+          printf '%s' "${KEYSTORE_B64}" | base64 --decode > "${keystore_path}"
+
+          {
+            echo "ANDROID_KEYSTORE_PATH=${keystore_path}"
+            echo "ANDROID_KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}"
+            echo "ANDROID_KEY_ALIAS=${KEY_ALIAS}"
+            echo "ANDROID_KEY_PASSWORD=${KEY_PASSWORD}"
+          } >> "$GITHUB_ENV"
+
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+          echo "Release APK will be signed with alias '${KEY_ALIAS}'."
+
       - name: Build release APK
         id: build
         shell: bash
@@ -58,14 +96,64 @@ jobs:
             -Pduckdetector.buildTimeUtc="${build_time_utc}" \
             :app:assembleRelease
 
-          echo "build outputs:"
-          find app/build/outputs/apk/release -type f -name '*.apk' 2>/dev/null || true
+          apk=$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)
+          if [ -z "${apk}" ]; then
+            echo "No release APK was produced." >&2
+            exit 1
+          fi
+          echo "apk=${apk}" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$(basename "${apk}")" >> "$GITHUB_OUTPUT"
+          ls -l "${apk}"
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Verify APK signature
+        shell: bash
+        env:
+          SIGNED: ${{ steps.signing.outputs.signed }}
+        run: |
+          set -euo pipefail
+
+          apk="${{ steps.build.outputs.apk }}"
+          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          apksigner=$(find "${sdk}" -path '*build-tools*' -name apksigner -type f 2>/dev/null | sort | tail -n 1)
+          if [ -z "${apksigner}" ]; then
+            echo "apksigner not found; skipping signature verification."
+            exit 0
+          fi
+          "${apksigner}" verify --verbose --print-certs "${apk}"
+
+          if [ "${SIGNED}" = "true" ]; then
+            if "${apksigner}" verify --verbose "${apk}" | grep -qi "Android Debug"; then
+              echo "APK is debug-signed even though release signing secrets were provided." >&2
+              exit 1
+            fi
+          fi
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          date_tag=$(date -u +%Y.%m.%d)
+          short_sha="${GITHUB_SHA::8}"
+          echo "tag=custom-${date_tag}-${short_sha}" >> "$GITHUB_OUTPUT"
+          echo "name=Duck Detector ${date_tag} (${short_sha})" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
-          name: duckdetector-release-apk
-          path: app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 30
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.name }}
+          files: ${{ steps.build.outputs.apk }}
+          body: |
+            Custom build of Duck Detector (countdown / consent-puzzle prompts removed,
+            ALPHA banner disabled).
+
+            - Upstream commit: `${{ github.sha }}`
+            - Branch: `${{ github.ref_name }}`
+            - Signed with a custom release key: `${{ steps.signing.outputs.signed }}`
+            - Install note: this APK uses a different signing key than the official build,
+              so uninstall the official app first.
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true

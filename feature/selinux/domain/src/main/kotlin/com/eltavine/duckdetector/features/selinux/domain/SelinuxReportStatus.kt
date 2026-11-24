@@ -33,6 +33,9 @@ fun SelinuxReport.toDetectorStatus(): DetectorStatus {
             SelinuxMode.ENFORCING -> when {
                 auditIntegrity?.state == SelinuxAuditIntegrityState.TAMPERED -> DetectorStatus.danger()
                 contextValidity?.contextValidity?.verdict == SelinuxContextValidityVerdict.KSU_PRESENT -> DetectorStatus.danger()
+                methods.any { it.oracle == SelinuxOracle.XXKSU_FD_REUSE && it.isSecure == false } -> DetectorStatus.danger()
+                methods.any { it.oracle == SelinuxOracle.XXKSU_ACCESS_TAIL && it.isSecure == false } -> DetectorStatus.danger()
+                methods.any { it.oracle == SelinuxOracle.XXKSU_CONTEXT_NUL && it.isSecure == false } -> DetectorStatus.danger()
                 policyloadSeqno?.isSecure == false -> DetectorStatus.danger()
                 methods.any { it.oracle == SelinuxOracle.STATUS_MMAP_ABI && it.isSecure == false } -> DetectorStatus.danger()
                 // EN: Please fucking do NOT downgrade this to WARNING. I reproduced the
@@ -45,12 +48,17 @@ fun SelinuxReport.toDetectorStatus(): DetectorStatus {
                 methods.any { it.oracle == SelinuxOracle.ATTR_CURRENT_TIMING && it.isSecure == false } -> DetectorStatus.danger()
                 methods.any { it.oracle == SelinuxOracle.APP_ZYGOTE_ATTR_TIMING &&
                     it.avcLookup?.timingVerdict == SelinuxAppZygoteTimingVerdict.POSITIVE } -> DetectorStatus.danger()
+                methods.any { it.oracle == SelinuxOracle.DIRTY_SEPOLICY_RAW && it.dirtySepolicyDanger } -> DetectorStatus.danger()
+                ksuContextTimingDetected() -> DetectorStatus.danger()
                 procAttrCurrent?.isSecure == false -> DetectorStatus.warning()
                 dirtyPolicyHit != null -> DetectorStatus.warning()
+                methods.any { it.oracle == SelinuxOracle.DIRTY_SEPOLICY_RAW && it.isSecure == false } -> DetectorStatus.warning()
                 appZygoteCarrierState == AppZygoteCarrierSupportState.UNTRUSTED -> DetectorStatus.warning()
                 // After the trusted oracle and carrier checks; before the info-level coverage state, which would mask it.
                 sidtabReading(this)?.verdict == SelinuxSidtabVerdict.DISCREPANCY_OBSERVED -> DetectorStatus.warning()
-                appZygoteCarrierState == AppZygoteCarrierSupportState.FAILED -> DetectorStatus.info(InfoKind.SUPPORT)
+                // DirtySepolicy treats an App Zygote service that cannot start or connect as a
+                // warning. This is a failed detection environment, not proof of SELinux tampering.
+                appZygoteCarrierState == AppZygoteCarrierSupportState.FAILED -> DetectorStatus.warning()
                 contextValidity?.contextValidity?.verdict == SelinuxContextValidityVerdict.SELF_TEST_FAILED -> DetectorStatus.warning()
                 contextValidity?.contextValidity?.verdict == SelinuxContextValidityVerdict.AMBIGUOUS -> DetectorStatus.warning()
                 policyAnalysis?.weakness == SelinuxPolicyWeakness.SEVERE ||
@@ -62,10 +70,31 @@ fun SelinuxReport.toDetectorStatus(): DetectorStatus {
             }
 
             SelinuxMode.PERMISSIVE, SelinuxMode.DISABLED -> DetectorStatus.danger()
-            SelinuxMode.UNKNOWN -> DetectorStatus.info(InfoKind.ERROR)
+            SelinuxMode.UNKNOWN -> if (ksuContextTimingDetected() || methods.any {
+                it.oracle == SelinuxOracle.DIRTY_SEPOLICY_RAW && it.dirtySepolicyDanger
+            } || methods.any {
+                it.oracle == SelinuxOracle.XXKSU_FD_REUSE && it.isSecure == false
+            } || methods.any {
+                it.oracle == SelinuxOracle.XXKSU_ACCESS_TAIL && it.isSecure == false
+            } || methods.any {
+                it.oracle == SelinuxOracle.XXKSU_CONTEXT_NUL && it.isSecure == false
+            }) {
+                DetectorStatus.danger()
+            } else if (appZygoteCarrierState == AppZygoteCarrierSupportState.FAILED ||
+                methods.any { it.oracle == SelinuxOracle.DIRTY_SEPOLICY_RAW && it.isSecure == false }) {
+                DetectorStatus.warning()
+            } else {
+                DetectorStatus.info(InfoKind.ERROR)
+            }
         }
     }
 }
+
+fun SelinuxReport.ksuContextTimingDetected(): Boolean =
+    methods.any {
+        (it.oracle == SelinuxOracle.KSU_CONTEXT_TIMING || it.oracle == SelinuxOracle.KSU_PROC_ATTR_TIMING) &&
+            it.isSecure == false
+    }
 
 fun contextValidityResult(report: SelinuxReport): SelinuxCheckResult? {
     return report.methods.firstOrNull { it.oracle == SelinuxOracle.CONTEXT_VALIDITY }

@@ -39,6 +39,228 @@ The SELinux detector asks whether SELinux is enforcing for this app, whether the
 - Result states: clean, valid root context, unavailable.
 - Interpretation: a valid root-tool context is supporting evidence of a modified policy.
 
+### xxksu SELinuxFS ignored fourth-field access transaction probe
+
+- Observable signal: the **same first three fields** of a legal
+  `/sys/fs/selinux/access` query return a valid six-field AV answer with
+  ordinary fourth-field suffixes `:inv:`, `:inv_file:`, and `:ksuX`,
+  but return `EINVAL` when the otherwise ignored fourth field is
+  `:ksu:` or `:ksu_file:`. The hidden candidate tails and their
+  placebos have **identical byte lengths**.
+- Producing subsystem: ACK 5.15 `sel_write_access` parses
+  `sscanf("%s %s %hu")` (three tokens), ignoring any extra field.
+  xxksu/backslashxx's `sh_simple_transaction_get` can instead scan
+  the full transaction-page buffer via `ksu_should_destroy_context`
+  before the native parser, rejecting a token outside the parsed query.
+- Source evidence: `SelinuxHideAttrProbe`
+  `app/src/main/cpp/selinuxfs_access_tail.cpp` and
+  `docs/SELINUXFS_IGNORED_TAIL_PROBE_2026-11-24.md`;
+  ACK 5.15
+  [selinuxfs.c](https://github.com/aosp-mirror/kernel_common/blob/android13-5.15-2025-01_r1/security/selinux/selinuxfs.c),
+  xxksu
+  [selinux_hide_arm64.c](https://github.com/backslashxx/KernelSU/blob/9a02a5c1e552fb21cdb505c3c0428901eca43848/kernel/feature/selinux_hide_arm64.c)
+  and
+  [selinux_hide.h](https://github.com/backslashxx/KernelSU/blob/9a02a5c1e552fb21cdb505c3c0428901eca43848/kernel/feature/selinux_hide.h).
+- Reachability: the **app_zygote preload parent**, not an isolated
+  service child, with app UID, `u:r:app_zygote:s0` (including MLS),
+  enforcing SELinux and `Seccomp: 2`, through a fresh `O_RDWR`
+  transaction FD per query. Actual App Zygote permission and successful
+  three-field `/access` oracle were observed on Xiaomi 13. No root or
+  SELinux SID change is required in the APK.
+- Controls and classification: require four complete alternating-order
+  repetitions of the same `source target process_class` prefix,
+  `base`, both equal-length placebos, and `:ksuX` to write/read
+  successfully and return **exactly the same six-field AV text**.
+  An invalid *source* must return `EINVAL`. **Only** if both
+  `:ksu:` and `:ksu_file:` tails return precisely `-1/EINVAL`
+  in all four repetitions, report the strong parser/scanner mismatch
+  (Danger). Both hidden tails succeeding is `not observed` with
+  `isSecure=null`; mixed/unexpected responses, failed controls,
+  missing/duplicate records and denied access are inconclusive or
+  unavailable, never clean or danger.
+- Controlled real-device evidence: probe repository has two
+  ON → OFF → OFF → ON sequences, eight independent App Zygote parents,
+  16 observations per state and tail. ON rejects both hidden tails;
+  OFF accepts both; normal tails succeed throughout. This is a
+  same-device xxksu version observation, **not** an independent Duck
+  APK real-device acceptance test or cross-device false-positive bound.
+  Duck's parser regression tests now also replay **four real ON and
+  four real OFF observations** retained from the Probe logs, with only
+  logcat framing and unused exploratory cases omitted. The fixtures
+  preserve recorded errno, byte counts, AV responses and the ON/OFF
+  seqno difference (1 versus 9), and the requested three-field query
+  prefix is reconstructed from the captured carrier and process-class
+  index. Native compilation, Debug APK assembly and SELinux feature/
+  capability unit tests succeeded; APK-level ON/OFF verification on
+  a target running this xxksu revision remains outstanding.
+- Relationship: the `/context` embedded-NUL tail and old same-FD
+  channels may expose related hiding mechanisms. Their results are
+  separate diagnostic rows but cannot automatically be treated as
+  statistically independent root evidence. No negative observation
+  proves absence of SELinux Hide.
+- Mechanism: the stock three-token /access parser ignores the fourth
+  field, but the tested Hide scanner matches tracked type names in the
+  complete input buffer before the parser consumes it.
+- References: kernel/common security/selinux/selinuxfs.c
+  (sel_write_access), backslashxx KernelSU kernel/feature/selinux_hide_arm64.c
+  and kernel/feature/selinux_hide.h at 9a02a5c1.
+- Applicability: the enforcing, seccomp-filtered App Zygote parent can
+  open and write /access with its own valid context and process class.
+- Visibility limits: access permissions and scanner implementations
+  differ across devices; missing or inconclusive observations cannot
+  exclude SELinux Hide.
+- Result states: ignored-tail rejection observed (Danger), no rejection
+  observed (informational), inconclusive, permission limited or unavailable.
+- Interpretation: a repeated parser/scanner mismatch is strong evidence
+  of input interposition on the tested implementation, not universal
+  identification of KernelSU or root.
+
+### xxksu SELinuxFS /context embedded-NUL tail probe
+
+- Observable signal: a valid current App Zygote context followed by an
+  embedded NUL and an equal-length benign suffix succeeds and reads back
+  the same canonical context, while a suffix containing `:ksu:` or
+  `:ksu_file:` after the first NUL returns EINVAL.
+- Producing subsystem: SELinuxFS context transaction and xxksu's
+  length-bounded SELinux Hide type scanner.
+- Mechanism: ACK's `sel_write_context` validates the C-string context
+  before the first NUL, but the tested `ksu_should_destroy_context`
+  examines bytes in the entire copied transaction page and can reject
+  a tracked type token beyond the parser boundary.
+- References: kernel/common `fs/libfs.c`,
+  `security/selinux/selinuxfs.c` (sel_write_context),
+  `security/selinux/ss/services.c` (context parsing), and
+  backslashxx KernelSU `kernel/feature/selinux_hide_arm64.c` and
+  `kernel/feature/selinux_hide.h` at 9a02a5c1.
+- Applicability: SELinux enforcing and an App Zygote preload parent
+  under the app UID, verified MLS context and seccomp mode 2 with
+  permission to open/write/read `/sys/fs/selinux/context`.
+- Visibility limits: missing App Zygote permissions, different context
+  parsers or Hide scanner versions can change this signal. The matched
+  Xiaomi 13 ON/OFF evidence does not establish cross-device coverage.
+  The parent collected /access and /context cases in one run, and both
+  findings share the same scanner; they are not independent root evidence.
+- Result states: four-round hidden suffix EINVAL with all matching
+  benign controls (Danger); all suffixes accepted (informational);
+  permission limited, unavailable or inconclusive.
+- Interpretation: only a complete four-round experiment with a valid
+  baseline, exact canonical replies for the same context, equal-length
+  negative controls, the `:ksuX` partial-match control and both
+  hidden tails returning EINVAL establishes a parser/scanner mismatch.
+  A negative result does not exclude SELinux Hide or other root tools.
+  Controlled ON/OFF raw evidence is in the
+  SelinuxHideAttrProbe 2026-11-24 ignored-tail research record; Duck
+  replays its ON and OFF observations as parser fixtures.
+
+### xxksu SELinuxFS same-FD transaction-state probe
+
+- Observable signal: **one file descriptor**, opened as `O_WRONLY` to
+  `/sys/fs/selinux/context`, accepts a second query after a first query
+  of `u:r:ksu:s0` or `u:object_r:ksu_file:s0` returns `EINVAL`.
+  On the stock `simple_transaction_get()` path, the first write consumes
+  the descriptor even if SELinux subsequently rejects the invalid context:
+  the second query returns `EBUSY` (`16`).
+- Producing subsystem: Android common kernel `fs/libfs.c`
+  `simple_transaction_get()` and SELinux `selinuxfs.c`
+  `selinux_transaction_write()`. The xxksu (backslashxx fork) ARM64
+  `sh_simple_transaction_get()` hook (and generic write-hook fallback)
+  can reject a hidden context with `EINVAL` **before** creating
+  `file->private_data`.
+- Mechanism: stock `selinux_transaction_write()` calls `simple_transaction_get()`
+  before validating the supplied context. The helper records a transaction in
+  `file->private_data`, so a second write on that FD returns `EBUSY` even if
+  the first label was invalid. The observed hide-hook early return instead
+  skips that transaction allocation for a targeted label.
+- References: Android Common Kernel (`kernel/common`) GKI 5.15,
+  [Android common GKI 5.15 libfs](https://github.com/aosp-mirror/kernel_common/blob/android13-5.15-2025-01_r1/fs/libfs.c#L839-L868),
+  [Android common GKI 5.15 SELinuxFS transaction](https://github.com/aosp-mirror/kernel_common/blob/android13-5.15-2025-01_r1/security/selinux/selinuxfs.c#L875-L900),
+  [xxksu ARM64 hook](https://github.com/backslashxx/KernelSU/blob/9a08f36d37b053392c52b112edb951c5a8ec32ff/kernel/feature/selinux_hide_arm64.c),
+  [generic fallback](https://github.com/backslashxx/KernelSU/blob/9a08f36d37b053392c52b112edb951c5a8ec32ff/kernel/feature/selinux_hide.c).
+- Applicability: observed on Android 14 / ARM64 / GKI 5.15 with the specified
+  backslashxx xxksu SELinux Hide implementation. Collected in the
+  **App Zygote parent preload** under its
+  actual UID and full MLS label. It reads its own label and verifies
+  enforcing=1; it does not use root, xxksu commands, change SID,
+  or update policy. It first requires `valid→valid` =
+  `success→EBUSY`, `invalid→invalid` =
+  `EINVAL→EBUSY`, and `invalid→valid` =
+  `EINVAL→EBUSY`. Each pair uses a fresh FD, with no close or reopen
+  **between** the two writes. Unexpected errors, missing carrier or
+  incorrect controls are `unavailable/inconclusive`, never negative.
+- Visibility limits: requires a functioning App Zygote parent with an app UID,
+  verified `app_zygote` context, enforcing SELinux, and write access to
+  `/sys/fs/selinux/context`. A failed open, denied write, missing carrier,
+  unexpected stock transaction control, or a different kernel/hook path
+  cannot establish an absence of hide behavior.
+- Result states: positive for a candidate when `candidate→valid` =
+  `EINVAL→success` **and** `candidate→invalid` =
+  `EINVAL→EINVAL`. Either tested candidate alone establishes a strong
+  positive (Danger) once all stock transaction controls pass, even if
+  the other candidate returns an unfamiliar errno. Native and Kotlin
+  both follow this any-candidate rule; Kotlin verifies the raw writes
+  rather than trusting the native summary text. Stock
+  `EINVAL→EBUSY` and Hide OFF `success→EBUSY` are reported
+  **not observed**, not proof of a secure/rootless device. Unavailable or
+  inconclusive is reported when the carrier, controls, or required write
+  outcomes cannot be verified and no complete positive is established.
+- Real device observation (2026-11-23): Xiaomi 13 (`fuxi`,
+  Android 14, AArch64, GKI 5.15.170), reporting xxksu manager
+  v3.3.1+55 and `selinux_hide` feature ID 4. One initial ON,
+  then OFF→ON→OFF→ON; all five App Zygote PIDs were distinct,
+  all native preflight controls passed, and both candidate contexts
+  switched between `success→EBUSY` (OFF) and
+  `EINVAL→success/EINVAL` (ON). The exact loaded in-kernel commit
+  was not independently attested, and no kprobe was used.
+- Negative comparison (2026-11-24): the owner reported reflashing the same
+  Xiaomi 13 to official KernelSU. The reference probe APK ran an
+  ON→OFF→OFF→ON sequence with four fresh App Zygote parents; all stock
+  transaction controls passed. Both `ksu` and `ksu_file` candidates returned
+  `EINVAL→EBUSY` with Hide ON and `success→EBUSY` with Hide OFF, for both
+  valid and invalid second inputs. Every run reported `NO_BYPASS_OBSERVED`.
+  Official provenance was user-reported; the loaded kernel/module commit
+  was not independently authenticated. These results apply to that phone
+  and tested binary, not all official KernelSU versions. They show that
+  Hide can preserve normal FD transaction consumption; the first-write
+  success/EINVAL difference remains observable under the controlled toggle.
+  Source: reference repository `SelinuxHideAttrProbe` at commit
+  `788e6196984c3d60975f36f1af3f86036cf5cfd8`, with raw results in that
+  repository's `debug-results/fdreuse_20261124_001104_507634.log`.
+- Interpretation: **strong, implementation-specific App Zygote
+  transaction-state anomaly** (Danger) when controls pass. This is
+  not a universal xxksu/root fingerprint; other kernels may
+  implement equivalent early returns, and forks can preserve the
+  transaction semantics. These observations share the SELinuxFS
+  surface with the context validity oracle and are not independent
+  evidence of a separate compromise.
+
+### KSU context query timing
+
+- Observable signal: paired elapsed times for `u:r:ksu:s0` and the invalid control
+  `u:r:inv:s0`, with a separate result row for each interface.
+- Producing subsystem: SELinux context queries through the selinuxfs `context` transaction
+  and SELinux setprocattr writes through `/proc/self/attr/current`.
+- Mechanism: the dedicated app zygote uses DirtySepolicy's write-only selinuxfs transaction
+  and runs the setprocattr measurement in a disposable child. Both measurements use the ARM64
+  Generic Timer reader shared by SELinux and TEE. The sampling thread attempts to pin to CPU 0
+  and restores its affinity afterward. It runs 32 warmup pairs and nine batches of 1,500 pairs,
+  with the KSU write immediately followed by the control write. Each paired difference with
+  magnitude below 40 ns is set to zero before computing direction counts, means and the median.
+- References: [Arm Generic Timer guide](https://developer.arm.com/documentation/102379/latest/),
+  [AOSP context query implementation](https://android.googlesource.com/platform/external/selinux/+/a273733/libselinux/src/check_context.c),
+  [Android common kernel SELinux hooks](https://android.googlesource.com/kernel/common/+/783025351c5fb3bcb4591d8fc61cbbd709aa4bcf/security/selinux/hooks.c),
+  [AOSP app zygote policy](https://android.googlesource.com/platform/system/sepolicy/+/refs/tags/android-15.0.0_r1/private/app_zygote.te).
+- Applicability: requires the app zygote carrier and a readable ARM64 timer. Setprocattr also
+  requires enforcing mode, unchanged child identity and a complete child report.
+- Visibility limits: the setprocattr control must return EINVAL and the candidate may return
+  EINVAL or EACCES. A successful or short write stops sampling. Scheduling, policy lookup and
+  cache behavior can affect elapsed time. Setprocattr timing can reflect either rejection during
+  context conversion or denial of a transition after conversion.
+- Result states: timing anomaly, threshold not met, or unavailable on hardware, query or child failure.
+- Interpretation: Danger appears when either direction (`A>B` or `A<B`) exceeds three times the
+  sum of the opposite direction and `A=B`, using counts summed across all nine batches. The row
+  also reports the per-pair median and mean, including the trimmed mean in details, and the
+  positive, negative and equal pair counts for each batch.
+
 ### Policy reload and status page
 
 - Observable signal: the app_zygote seqno oracle: the status page's policyload counter against the access oracle's sequence number, and whether reading the status page killed the disposable child that read it.
@@ -138,7 +360,7 @@ and evidence-retention changes; host/JVM tests validate their control flow only.
 - Producing subsystem: App Zygote preload, procfs attr/current, the SELinux LSM context parser and scheduler/clock observations.
 - Mechanism: equal-length invalid-type and newline-prefixed writes exercise different stock paths; an altered dual-policy parser can change their relative cost. EINVAL controls and unchanged parent identity gate all measurements. All 512 valid within-pair same-CPU samples use the paired median sign; migration-only partial observations may be Positive only under the stricter 90%-A-slower safeguard. They do not attribute its cause.
 - References: [ZygotePreload API](https://developer.android.com/reference/android/app/ZygotePreload); ACK [android13-5.15-2025-01_r1 hooks.c](https://android.googlesource.com/kernel/common/+/refs/tags/android13-5.15-2025-01_r1/security/selinux/hooks.c) (`selinux_setprocattr`), and the KernelSU source revision linked below. The stock source converts A before credential allocation but skips conversion for B, so no timing-sign guarantee follows from these paths.
-- Applicability: API >=29, application UID >=10000, app_zygote context with a field-bounded optional MLS category suffix, readable enforcing state and EINVAL controls. Collection changes no affinity; sampled endpoints must match within each pair but may differ between pairs. The cited GKI 5.15 comparison and device measurements do not certify other OEMs, kernel revisions or CPU classes.
+- Applicability: Linux 5.10 or newer, API >=29, application UID >=10000, app_zygote context with a field-bounded optional MLS category suffix, readable enforcing state and EINVAL controls. Kernels older than Linux 5.10 skip the parent timing preflight and sample and omit its report row. Collection changes no affinity; sampled endpoints must match within each pair but may differ between pairs. The cited GKI 5.15 comparison and device measurements do not certify other OEMs, kernel revisions or CPU classes.
 - Visibility limits: scheduling, power state, caching and OEM policy/implementation can change costs. Sampled CPU endpoints cannot observe a migration away and back between reads. The synchronous parent syscall has no interruptible timeout; a successful child preflight cannot prove identical handling in every modified kernel. AVC counters and timing share a carrier and are not independent root evidence.
 - Result states: positive direction, zero baseline, negative direction, inconclusive, unavailable. Positive timing raises a Danger anomaly; missing and legacy parent records cannot become measured negatives. Later child counter failures retain the separate completed parent evidence.
 - Provenance: [GKI 5.15 hooks.c](https://github.com/aosp-mirror/kernel_common/blob/android13-5.15-2025-01_r1/security/selinux/hooks.c#L6542-L6684) first checks PROCESS__SETCURRENT. A fails during the invalid-type SID conversion, while B skips conversion then runs prepare_creds and abort_creds because its SID is zero; [GKI 5.15 cred.c](https://github.com/aosp-mirror/kernel_common/blob/android13-5.15-2025-01_r1/kernel/cred.c#L255-L303) shows allocation, copying and LSM preparation. [KernelSU #3877 / 2697f36f](https://github.com/tiann/KernelSU/blob/2697f36fc8ec10ab73e97ec1724e0f3212116ba2/kernel/feature/selinux_hide.c#L232-L310) retains the early AVC check while [its dual-policy parser](https://github.com/tiann/KernelSU/blob/2697f36fc8ec10ab73e97ec1724e0f3212116ba2/kernel/feature/selinux_hide.c#L603-L768) duplicates the input and resolves both sets of user, role and type symbols. The invalid-type candidate fails before MLS and SID registration.

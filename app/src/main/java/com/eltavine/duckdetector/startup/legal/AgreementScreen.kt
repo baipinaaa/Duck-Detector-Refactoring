@@ -56,7 +56,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,8 +69,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.eltavine.duckdetector.R
+import com.eltavine.duckdetector.core.designsystem.theme.DuckTheme
 import com.eltavine.duckdetector.core.designsystem.theme.DuckTypography
 import com.eltavine.duckdetector.features.dashboard.ui.DashboardTopBarBrandIcon
+import com.eltavine.duckdetector.features.dashboard.presentation.model.ScanHistoryCounts
 import com.eltavine.duckdetector.startup.StartupHeroGlyph
 import com.eltavine.duckdetector.ui.shell.StartupMiuixTopBar
 import io.github.xiaotong6666.uihelper.adaptive.AdaptiveContent
@@ -90,10 +91,11 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @Composable
 fun AgreementScreen(
     onAgree: () -> Unit,
+    history: ScanHistoryCounts = ScanHistoryCounts(),
     modifier: Modifier = Modifier,
 ) {
+    // 已移除 30 秒倒计时、算术题与"滚动到底"强制条件：同意按钮立即可用。
     val scrollState = rememberScrollState()
-    // 已移除 30 秒倒计时、算术题与“滚动到底”强制条件：同意按钮立即可用。
     val canProceed = true
     val buttonScale by animateFloatAsState(
         targetValue = if (canProceed) 1f else 0.96f,
@@ -106,6 +108,8 @@ fun AgreementScreen(
     var showContent by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         showContent = true
+    }
+
     }
 
     AdaptiveContent(
@@ -121,6 +125,7 @@ fun AgreementScreen(
                     StartupMiuixTopBar(
                         title = stringResource(R.string.user_agreement),
                         scrollBehavior = scrollBehavior,
+                        history = history,
                     )
                 },
                 bottomBar = {
@@ -157,7 +162,7 @@ fun AgreementScreen(
                     LargeFlexibleTopAppBar(
                         title = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                DashboardTopBarBrandIcon()
+                                DashboardTopBarBrandIcon(history)
                                 Spacer(modifier = Modifier.size(10.dp))
                                 Text(text = stringResource(R.string.user_agreement))
                             }

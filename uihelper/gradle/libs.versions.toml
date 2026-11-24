@@ -1,13 +1,13 @@
 [versions]
-agp = "9.4.1"
+agp = "9.5.1"
 kotlin = "2.4.21"
 compose-bom = "2026.09.00"
-material3 = "1.5.0-beta01"
+material3 = "1.5.0-beta02"
 activity-compose = "1.13.0"
 androidx-core = "1.19.1"
 navigationevent = "1.2.0"
 miuix = "0.9.4"
-commonmark = "0.30.1"
+commonmark = "0.32.0"
 appiconloader = "1.5.0"
 
 [libraries]

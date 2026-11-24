@@ -23,6 +23,12 @@ public data class SelinuxContextValiditySnapshot(
     val available: Boolean = false,
     val probeAttempted: Boolean = false,
     val carrierContext: String? = null,
+    /** Actual App-Zygote parent PID reported by the bound carrier, not the isolated child PID. */
+    val appZygoteParentPid: Int? = null,
+    val appZygotePreloadStartedNanos: Long? = null,
+    /** Build identity embedded in the App-Zygote preload that produced this snapshot. */
+    val appZygotePreloadVersionCode: Long? = null,
+    val appZygotePreloadBuildRevision: String? = null,
     val carrierMatchesExpected: Boolean = false,
     val selinuxEnabled: Boolean? = null,
     val selinuxEnforced: Boolean? = null,
@@ -67,6 +73,7 @@ public data class SelinuxContextValiditySnapshot(
     val dirtyPolicyZygoteAdbDataSearchAllowed: Boolean? = null,
     val dirtyPolicyFailureReason: String? = null,
     val dirtyPolicyNotes: List<String> = emptyList(),
+    val dirtyPolicyAdditionalRules: Map<String, Boolean> = emptyMap(),
     val javaDirtyPolicyAvailable: Boolean = false,
     val javaDirtyPolicyProbeAttempted: Boolean = false,
     val javaDirtyPolicyCarrierContext: String? = null,
@@ -95,6 +102,7 @@ public data class SelinuxContextValiditySnapshot(
     val javaDirtyPolicyZygoteAdbDataSearchAllowed: Boolean? = null,
     val javaDirtyPolicyFailureReason: String? = null,
     val javaDirtyPolicyNotes: List<String> = emptyList(),
+    val javaDirtyPolicyAdditionalRules: Map<String, Boolean> = emptyMap(),
     val policyloadSeqnoAvailable: Boolean = false,
     val policyloadSeqnoProbeAttempted: Boolean = false,
     val policyloadSeqnoState: String? = null,
@@ -105,6 +113,7 @@ public data class SelinuxContextValiditySnapshot(
     val policyloadSeqnoProcessClass: Int? = null,
     val policyloadSeqnoFailureReason: String? = null,
     val policyloadSeqnoNotes: List<String> = emptyList(),
+    val dirtySepolicyRaw: SelinuxDirtySepolicyRawSnapshot = SelinuxDirtySepolicyRawSnapshot(),
     val procAttrCurrentProbeAttempted: Boolean = false,
     val procAttrCurrentResults: List<SelinuxProcAttrCurrentResult> = emptyList(),
     val procAttrCurrentFailureReason: String? = null,
@@ -112,6 +121,13 @@ public data class SelinuxContextValiditySnapshot(
     val statusAbi: SelinuxStatusAbiSnapshot = SelinuxStatusAbiSnapshot(),
     val failureReason: String? = null,
     val notes: List<String> = emptyList(),
+    /** KSU batch totals, per-pair median, batch direction counts, and batch size. Older carriers include a file context. */
+    val ksuTimingBatchDifferencesNs: List<Long> = emptyList(),
+    val ksuProcAttrTimingBatchDifferencesNs: List<Long> = emptyList(),
+    /** Raw, self-controlled SELinuxFS same-FD write outcomes from the app_zygote parent. */
+    val xxksuFdReuseRaw: String? = null,
+    /** Parser/scanner mismatch for an ignored fourth SELinuxFS /access field, not FD reuse. */
+    val xxksuAccessTailRaw: String? = null,
     /**
      * Why this snapshot is or is not usable. [available] alone cannot distinguish "the probe ran and
      * found nothing" from "the probe never ran", so the reason is carried here. [failureReason] holds

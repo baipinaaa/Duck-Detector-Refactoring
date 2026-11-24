@@ -16,6 +16,13 @@ limitations under the License.
 -->
 
 <resources>
+    <string name="settings_important_title">重要なお知らせ</string>
+    <string name="settings_important_why">なぜ Duck Detector が必要なのか？</string>
+    <string name="settings_important_intro">Duck Detector は、Momo に似た Android 端末環境の検査ツールです。</string>
+    <string name="settings_important_context">端末環境が「正常」かどうかにこだわりすぎるのは行き過ぎかもしれません。しかし、一部のアプリやサービスは、端末の完全性、システム環境、その他のリスクを示すシグナルに基づいて、実際にユーザーの扱いを変えています。</string>
+    <string name="settings_important_consequences">追加の本人確認、機能制限、サービスの提供拒否、不透明なリスク管理などが行われることがあります。明確な通知を受け取れず、自分の端末が異なる扱いを受ける理由がわからない場合もあります。</string>
+    <string name="settings_important_goal">Duck Detector は、こうした不透明な端末環境のシグナルを可視化することを目指しています。</string>
+    <string name="settings_important_evidence">私たちは診断結果とその根拠を提供するのであって、サードパーティ製アプリに代わって端末を信頼すべきかどうかを判断するものではありません。</string>
     <string name="author_wall_title">貢献者</string>
     <string name="author_wall_hint">ドラッグで移動 · ピンチで拡大・縮小 · タップで詳細</string>
     <string name="author_wordmark_hint">ピンチして拡大すると貢献者名の文字を確認できます</string>
@@ -70,4 +77,25 @@ limitations under the License.
     <string name="update_status_failed">GitHub を確認できませんでした。タップして再試行</string>
     <string name="update_status_idle">コールドスタート後に GitHub Main Nightly を確認します。タップして今すぐ確認</string>
     <string name="settings_section_appearance">外観</string>
+    <string name="author_summary_5ec1cff">SELinux と LSPosed の誤検出を発見</string>
+    <string name="author_summary_947409161">ウクライナ語翻訳</string>
+    <string name="author_summary_alex">SELinux(C++, Kotlin)</string>
+    <string name="author_summary_aviraxp">SELinux と LSPosed の誤検出を報告</string>
+    <string name="author_summary_coolzyd">カーネルチェック</string>
+    <string name="author_summary_default">貢献者</string>
+    <string name="author_summary_hsskyboy">リポジトリの修正、カーネルチェック</string>
+    <string name="author_summary_lingqing">TEE</string>
+    <string name="author_summary_mirin">UI</string>
+    <string name="author_summary_qwq233">TEE</string>
+    <string name="author_summary_searchur">ダッシュボード、Dangerous Apps、Zygisk</string>
+    <string name="author_summary_sinanb9">SELinux の App Zygote クラッシュ報告とカーネルトレース</string>
+    <string name="author_summary_sqmy">Kotlin</string>
+    <string name="author_summary_victor">CI</string>
+    <string name="author_summary_wuying">「KSU throne hunt」の動作に関する検出方式の実現可能性を検証。</string>
+    <string name="author_summary_zg089">アラビア語翻訳</string>
+    <string name="settings_ui_style_title">UI スタイル</string>
+    <string name="settings_ui_style_description">Duck Detector の外観を選択</string>
+    <string name="settings_style_miuix">MIUIX</string>
+    <string name="settings_style_material">Material 3</string>
+    <string name="settings_manage_permissions">アプリの権限を管理</string>
 </resources>

@@ -32,10 +32,8 @@ pluginManagement {
 plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
-// The UI framework ships as a Git submodule upstream. `uihelper/` may also arrive as a plain
-// directory (for example in an archive), where its own `.git` is missing: querying the version with
-// `git rev-list` there would silently count this repository's commits instead, so fall back to the
-// pinned publication version in that case.
+// An uninitialized submodule is an empty directory: the version query below would then count this
+// repository's commits, and includeBuild would fail without saying why.
 if (!file("uihelper/settings.gradle.kts").isFile) {
     throw GradleException("The uihelper submodule is not checked out. Run: git submodule update --init --recursive")
 }
@@ -49,15 +47,16 @@ dependencyResolutionManagement {
     versionCatalogs {
         create("libs") {
             // Gradle already imports gradle/libs.versions.toml for the default catalog.
-            // Match the checked-out submodule's Maven publication version automatically; a plain
-            // directory checkout without git metadata uses the pinned commit count instead.
+            // Match the checked-out submodule's Maven publication version automatically.
+            // Submodule checkouts carry git metadata, so the commit count is authoritative; a plain
+            // directory checkout (no .git) falls back to the pinned commit count of the submodule.
             val uihelperVersion = if (file("uihelper/.git").exists()) {
                 providers.exec {
                     workingDir = file("uihelper")
                     commandLine("git", "rev-list", "--count", "HEAD")
                 }.standardOutput.asText.map { it.trim() }.get()
             } else {
-                "56"
+                "61"
             }
             library("uihelper", "io.github.xiaotong6666", "uihelper")
                 .version(uihelperVersion)
@@ -87,6 +86,6 @@ includeModules("feature", depth = 2)
 includeModules("capability", depth = 2)
 includeModules("core", depth = 1)
 
-// Keep the UI framework as an independent Gradle build. Its own version catalog is authoritative;
-// including it as a regular project would merge Duck's catalog into it.
+// Keep the UI framework as a Git submodule and an independent Gradle build. Its own version
+// catalog is authoritative; including it as a regular project would merge Duck's catalog into it.
 includeBuild("uihelper")
